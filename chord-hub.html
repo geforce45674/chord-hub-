@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chord Hub</title>
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Chord Hub">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231a1a2e'/><text y='.75em' x='50' text-anchor='middle' font-size='60'>🎸</text></svg>">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        :root{--bg:#0f0f1a;--card:#1a1a2e;--accent:#e94560;--text:#eee;--muted:#999;--border:#2a2a4a;--gradient:linear-gradient(135deg,#e94560,#ff6b6b);--shadow:0 8px 32px rgba(0,0,0,0.3)}
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;padding:0 0 70px 0;user-select:none}
+        .app{width:100%;max-width:700px;padding:16px}
+        .auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px}
+        .auth-screen .logo{font-size:4.5em;animation:float 3s ease-in-out infinite}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
+        .auth-screen h1{font-size:3em;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:900}
+        .auth-tabs{display:flex;margin-bottom:20px;background:var(--card);border-radius:50px;padding:4px;border:1px solid var(--border)}
+        .auth-tab{padding:12px 28px;border-radius:50px;border:none;background:transparent;color:var(--muted);font-weight:600;cursor:pointer;font-size:0.95em}
+        .auth-tab.active{background:var(--accent);color:white}
+        .auth-form{width:100%;max-width:360px;display:flex;flex-direction:column;gap:10px}
+        .auth-form input{width:100%;padding:14px 18px;border-radius:16px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:16px;outline:none}
+        .auth-form input:focus{border-color:var(--accent)}
+        .privacy-note{display:flex;align-items:flex-start;gap:8px;font-size:0.78em;color:var(--muted);text-align:left;margin:8px 0}
+        .privacy-note input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent)}
+        .auth-form button{padding:14px;border-radius:16px;border:none;font-size:1.05em;font-weight:700;cursor:pointer}
+        .btn-primary{background:var(--gradient);color:white}
+        .btn-ghost{background:transparent;color:var(--accent);border:2px solid var(--border)}
+        .auth-error{color:#ff4757;font-size:0.9em;min-height:20px}
+        .header{display:flex;justify-content:space-between;align-items:center;padding:8px 0 15px;flex-wrap:wrap;gap:8px}
+        .header h1{font-size:1.5em;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:900}
+        .user-badge{font-size:0.8em;color:var(--muted);display:flex;align-items:center;gap:6px;background:var(--card);padding:6px 12px;border-radius:20px;border:1px solid var(--border)}
+        .btn-logout{background:transparent;border:none;color:var(--accent);cursor:pointer;font-weight:600}
+        .admin-badge{background:var(--accent);color:white;padding:2px 8px;border-radius:10px;font-size:0.7em;font-weight:bold}
+        .bottom-nav{position:fixed;bottom:0;left:0;width:100%;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 12px;z-index:50}
+        .nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:var(--muted);font-size:0.7em;font-weight:600;padding:6px 14px;border-radius:12px;border:none;background:transparent}
+        .nav-item.active{color:var(--accent);background:rgba(233,69,96,0.1)}
+        .nav-item .icon{font-size:1.6em}
+        .search-bar{margin-bottom:14px;position:relative}
+        .search-bar input{width:100%;padding:14px 20px 14px 44px;border-radius:16px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:16px;outline:none}
+        .search-bar input:focus{border-color:var(--accent)}
+        .search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%)}
+        .btn-add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:var(--gradient);border:none;border-radius:16px;color:white;font-size:1.05em;font-weight:700;cursor:pointer;margin-bottom:16px}
+        .songs-list{display:flex;flex-direction:column;gap:10px}
+        .song-card{background:var(--card);border-radius:18px;padding:16px 18px;border:1px solid var(--border);cursor:pointer;position:relative;box-shadow:var(--shadow)}
+        .song-card:active{transform:scale(0.98);border-color:var(--accent)}
+        .song-card h2{font-size:1.1em;margin-bottom:2px;padding-right:80px}
+        .song-card .artist{color:var(--accent);font-weight:600;margin-bottom:6px}
+        .chord-tag{background:rgba(233,69,96,0.1);color:var(--accent);padding:3px 8px;border-radius:10px;font-size:0.75em;font-weight:700;font-family:monospace}
+        .chords-preview{display:flex;flex-wrap:wrap;gap:5px}
+        .icon-btn{background:rgba(233,69,96,0.08);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:absolute;top:14px;font-size:0.95em}
+        .edit-btn{right:52px}.delete-btn{right:14px}
+        .heart-btn{position:absolute;bottom:14px;right:14px;background:transparent;border:none;font-size:1.3em;cursor:pointer;color:#999}
+        .heart-btn.liked{color:var(--accent);animation:heartPop 0.4s ease}
+        @keyframes heartPop{0%{transform:scale(1)}30%{transform:scale(1.4)}100%{transform:scale(1)}}
+        .no-songs{text-align:center;color:var(--muted);padding:60px 20px}
+        .no-songs .icon{font-size:4em;display:block;margin-bottom:12px}
+        .modal-overlay,.detail-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:100;justify-content:center;align-items:flex-end}
+        .modal-overlay.active,.detail-overlay.active{display:flex}
+        .modal,.detail{background:var(--card);border-radius:24px 24px 0 0;padding:24px 20px 30px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s}
+        @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        .modal h2,.detail h2{text-align:center;font-size:1.4em;margin-bottom:12px}
+        .modal label{display:block;color:var(--muted);font-weight:600;font-size:0.85em;margin-top:10px}
+        .modal input,.modal textarea{width:100%;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--bg);color:var(--text);font-size:16px;outline:none;font-family:inherit}
+        .modal textarea{min-height:150px;font-family:monospace;line-height:1.7;white-space:pre-wrap;resize:vertical}
+        .modal-buttons{display:flex;gap:10px;margin-top:18px}
+        .btn-save{flex:2;padding:13px;background:var(--gradient);border:none;border-radius:16px;color:white;font-weight:700;cursor:pointer}
+        .btn-cancel{flex:1;padding:13px;background:transparent;border:2px solid var(--border);border-radius:16px;color:var(--text);cursor:pointer}
+        .detail .close-btn{float:right;background:var(--accent);border:none;color:white;width:36px;height:36px;border-radius:50%;font-size:1.2em;cursor:pointer;display:flex;align-items:center;justify-content:center}
+        .detail .artist-detail{color:var(--accent);font-size:1.1em;margin-bottom:12px;text-align:center;font-weight:600}
+        .detail-actions{display:flex;gap:8px;justify-content:center;margin-bottom:14px;flex-wrap:wrap}
+        .detail-actions button{padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:0.85em}
+        .lyrics-block{background:var(--bg);padding:16px;border-radius:14px;font-family:monospace;line-height:1.9;white-space:pre-wrap;font-size:0.9em}
+        .highlight-chords{color:var(--accent);font-weight:bold}
+        .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(100px);background:#2ecc71;color:#000;padding:10px 22px;border-radius:50px;font-weight:700;z-index:200;transition:transform 0.3s;font-size:0.9em}
+        .toast.show{transform:translateX(-50%) translateY(0)}
+        .stats-row{display:flex;gap:8px;margin-bottom:12px}
+        .stat-chip{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:6px 12px;font-size:0.78em;color:var(--muted)}
+        .stat-chip strong{color:var(--accent)}
+    </style>
+</head>
+<body>
+    <div id="authScreen" class="auth-screen">
+        <div class="logo">🎸</div>
+        <h1>Chord Hub</h1>
+        <p class="tagline" style="color:var(--muted);margin-bottom:25px">Твой облачный песенник</p>
+        <div class="auth-tabs">
+            <button class="auth-tab active" onclick="switchTab('login')">Вход</button>
+            <button class="auth-tab" onclick="switchTab('register')">Регистрация</button>
+        </div>
+        <div class="auth-form" id="formLogin">
+            <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
+            <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
+            <p class="auth-error" id="loginError"></p>
+            <button class="btn-primary" onclick="loginAsAdmin()">🔐 Войти</button>
+            <button class="btn-ghost" onclick="loginAsGuest()">👁 Смотреть как гость</button>
+        </div>
+        <div class="auth-form" id="formRegister" style="display:none;">
+            <input type="text" id="regName" placeholder="Имя" autocomplete="name">
+            <input type="email" id="regEmail" placeholder="Email" autocomplete="email">
+            <input type="password" id="regPassword" placeholder="Пароль (мин. 6 символов)" autocomplete="new-password">
+            <label class="privacy-note"><input type="checkbox" id="privacyConsent"><span>Я согласен на обработку данных. <strong>Конфиденциальность гарантирована.</strong></span></label>
+            <p class="auth-error" id="regError"></p>
+            <button class="btn-primary" onclick="registerUser()" id="btnRegister" disabled>🛡️ Зарегистрироваться</button>
+        </div>
+    </div>
+    <div class="app" id="mainApp" style="display:none;">
+        <div class="header">
+            <h1>🎸 Chord Hub</h1>
+            <div class="user-badge">
+                <span id="userLabel">Гость</span>
+                <span class="admin-badge" id="adminBadge" style="display:none;">ADMIN</span>
+                <button class="btn-logout" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        <div id="contentAll">
+            <div class="stats-row"><div class="stat-chip">📊 Всего: <strong id="statTotal">0</strong></div><div class="stat-chip">❤️ Избранных: <strong id="statFav">0</strong></div></div>
+            <div class="search-bar"><span class="search-icon">🔍</span><input type="search" id="searchInput" placeholder="Поиск..." autocomplete="off"></div>
+            <button class="btn-add" id="btnAdd" style="display:none;">＋ Добавить песню</button>
+            <div class="songs-list" id="songsList"><div style="text-align:center;padding:50px;color:var(--muted)">⏳ Загрузка...</div></div>
+        </div>
+        <div id="contentFav" style="display:none;">
+            <h3 style="text-align:center;margin-bottom:16px;">❤️ Избранное</h3>
+            <div class="songs-list" id="favSongsList"><div class="no-songs"><span class="icon">💔</span>Нет избранных песен</div></div>
+        </div>
+    </div>
+    <div class="bottom-nav" id="bottomNav" style="display:none;">
+        <button class="nav-item active" onclick="switchContentTab('all')"><span class="icon">🎵</span> Все песни</button>
+        <button class="nav-item" onclick="switchContentTab('fav')"><span class="icon">❤️</span> Избранное</button>
+    </div>
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h2 id="modalTitle">➕ Новая песня</h2>
+            <label>🎵 Название</label><input type="text" id="songTitle" placeholder="Название" autocomplete="off">
+            <label>🎤 Исполнитель</label><input type="text" id="songArtist" placeholder="Исполнитель" autocomplete="off">
+            <label>📝 Текст с аккордами</label><textarea id="songLyrics" placeholder="Текст с аккордами..."></textarea>
+            <div class="modal-buttons"><button class="btn-cancel" onclick="closeModal()">Отмена</button><button class="btn-save" onclick="saveSong()">💾 Сохранить</button></div>
+        </div>
+    </div>
+    <div class="detail-overlay" id="detailOverlay">
+        <div class="detail">
+            <button class="close-btn" onclick="closeDetail()">✕</button>
+            <h2 id="detailTitle"></h2><p class="artist-detail" id="detailArtist"></p>
+            <div class="detail-actions"><button onclick="toggleFavFromDetail()" id="btnDetailFav">🤍 В избранное</button><button onclick="copyLyrics()">📋 Копировать</button></div>
+            <div class="lyrics-block" id="detailLyrics"></div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDU7wakFFH19KftxZVmoJfzFeXSy2eupGo",
+            authDomain: "chord-hub-6be84.firebaseapp.com",
+            projectId: "chord-hub-6be84",
+            storageBucket: "chord-hub-6be84.firebasestorage.app",
+            messagingSenderId: "734257868514",
+            appId: "1:734257868514:web:24a10f01c9d2f7fc88f8bb"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const ADMIN_EMAIL = "aliaraliev4@gmail.com";
+
+        let currentUser = null, isAdmin = false, allSongs = [], favoriteIds = new Set(), currentTab = 'all', currentDetailSong = null, editingId = null, unsubscribeSongs = null, unsubscribeFavs = null;
+
+        function switchTab(t) {
+            document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
+            document.getElementById('formLogin').style.display = t === 'login' ? 'flex' : 'none';
+            document.getElementById('formRegister').style.display = t === 'register' ? 'flex' : 'none';
+            document.querySelector(t === 'login' ? '.auth-tabs button:first-child' : '.auth-tabs button:last-child').classList.add('active');
+        }
+
+        function switchContentTab(t) {
+            currentTab = t;
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            document.querySelector(t === 'all' ? '.nav-item:first-child' : '.nav-item:last-child').classList.add('active');
+            document.getElementById('contentAll').style.display = t === 'all' ? 'block' : 'none';
+            document.getElementById('contentFav').style.display = t === 'fav' ? 'block' : 'none';
+            renderCurrentTab();
+        }
+
+        document.getElementById('privacyConsent').addEventListener('change', function() {
+            document.getElementById('btnRegister').disabled = !this.checked;
+        });
+
+        function loginAsAdmin() {
+            const e = document.getElementById('loginEmail').value.trim();
+            const p = document.getElementById('loginPassword').value.trim();
+            const err = document.getElementById('loginError');
+            if (!e || !p) { err.textContent = 'Заполни все поля'; return; }
+            auth.signInWithEmailAndPassword(e, p).catch(er => err.textContent = '❌ ' + (er.code === 'auth/invalid-credential' ? 'Неверный email или пароль' : er.message));
+        }
+
+        function registerUser() {
+            const n = document.getElementById('regName').value.trim();
+            const e = document.getElementById('regEmail').value.trim();
+            const p = document.getElementById('regPassword').value.trim();
+            const err = document.getElementById('regError');
+            if (!n || !e || !p) { err.textContent = 'Заполни все поля'; return; }
+            if (p.length < 6) { err.textContent = 'Пароль минимум 6 символов'; return; }
+            auth.createUserWithEmailAndPassword(e, p)
+                .then(r => r.user.updateProfile({ displayName: n }))
+                .then(() => db.collection('users').doc(e).set({ name: n, createdAt: firebase.firestore.FieldValue.serverTimestamp() }))
+                .catch(er => err.textContent = '❌ ' + er.message);
+        }
+
+        function loginAsGuest() { auth.signInAnonymously().catch(() => {}); }
+        function logout() { auth.signOut(); }
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                isAdmin = (user.email === ADMIN_EMAIL);
+                document.getElementById('authScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                document.getElementById('bottomNav').style.display = 'flex';
+                document.getElementById('btnAdd').style.display = isAdmin ? 'flex' : 'none';
+                document.getElementById('adminBadge').style.display = isAdmin ? 'inline' : 'none';
+                document.getElementById('userLabel').textContent = user.displayName || (user.isAnonymous ? 'Гость' : user.email?.split('@')[0] || 'Пользователь');
+                loadAllSongs();
+                loadFavorites();
+            } else {
+                document.getElementById('authScreen').style.display = 'flex';
+                document.getElementById('mainApp').style.display = 'none';
+                document.getElementById('bottomNav').style.display = 'none';
+                if (unsubscribeSongs) unsubscribeSongs();
+                if (unsubscribeFavs) unsubscribeFavs();
+            }
+        });
+
+        function loadAllSongs() {
+            if (unsubscribeSongs) unsubscribeSongs();
+            unsubscribeSongs = db.collection('songs').orderBy('dateAdded', 'desc').onSnapshot(snap => {
+                allSongs = [];
+                snap.forEach(d => allSongs.push({ id: d.id, ...d.data() }));
+                renderCurrentTab();
+                updateStats();
+            });
+        }
+
+        function loadFavorites() {
+            if (!currentUser || currentUser.isAnonymous) { favoriteIds = new Set(); renderCurrentTab(); updateStats(); return; }
+            if (unsubscribeFavs) unsubscribeFavs();
+            unsubscribeFavs = db.collection('users').doc(currentUser.email).collection('favorites').onSnapshot(snap => {
+                favoriteIds = new Set();
+                snap.forEach(d => favoriteIds.add(d.id));
+                renderCurrentTab();
+                updateStats();
+            });
+        }
+
+        function renderCurrentTab() {
+            const container = currentTab === 'all' ? document.getElementById('songsList') : document.getElementById('favSongsList');
+            const arr = currentTab === 'all' ? allSongs : allSongs.filter(s => favoriteIds.has(s.id));
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = arr.filter(s => !term || (s.title || '').toLowerCase().includes(term) || (s.artist || '').toLowerCase().includes(term));
+            if (arr.length === 0) {
+                container.innerHTML = currentTab === 'all' ? '<div class="no-songs"><span class="icon">🎵</span>Пока нет песен</div>' : '<div class="no-songs"><span class="icon">💔</span>Нет избранных</div>';
+                return;
+            }
+            if (filtered.length === 0) { container.innerHTML = '<div class="no-songs">🔍 Ничего не найдено</div>'; return; }
+            container.innerHTML = filtered.map(s => {
+                const chords = [...new Set((s.lyrics || '').match(/\[([^\]]+)\]/g)?.map(m => m.replace(/[\[\]]/g, '')) || [])].slice(0, 5);
+                const isFav = favoriteIds.has(s.id);
+                return `<div class="song-card" onclick="openDetail('${s.id}')">
+                    ${isAdmin ? `<button class="icon-btn edit-btn" onclick="event.stopPropagation();editSong('${s.id}')">✏️</button><button class="icon-btn delete-btn" onclick="event.stopPropagation();deleteSong('${s.id}')">🗑️</button>` : ''}
+                    <h2>${s.title || 'Без названия'}</h2>
+                    <p class="artist">${s.artist || 'Неизвестный исполнитель'}</p>
+                    <div class="chords-preview">${chords.map(c => `<span class="chord-tag">${c}</span>`).join('')}</div>
+                    <button class="heart-btn ${isFav ? 'liked' : ''}" onclick="event.stopPropagation();toggleFav('${s.id}')">${isFav ? '❤️' : '🤍'}</button>
+                </div>`;
+            }).join('');
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').textContent = allSongs.length;
+            document.getElementById('statFav').textContent = favoriteIds.size;
+        }
+
+        function toggleFav(id) {
+            if (!currentUser || currentUser.isAnonymous) { showToast('Войди чтобы добавлять в избранное'); return; }
+            const ref = db.collection('users').doc(currentUser.email).collection('favorites').doc(id);
+            if (favoriteIds.has(id)) { ref.delete(); } else { ref.set({ addedAt: Date.now() }); }
+        }
+
+        function toggleFavFromDetail() {
+            if (currentDetailSong) toggleFav(currentDetailSong.id);
+            document.getElementById('btnDetailFav').textContent = favoriteIds.has(currentDetailSong?.id) ? '❤️ В избранном' : '🤍 В избранное';
+        }
+
+        function openDetail(id) {
+            currentDetailSong = allSongs.find(s => s.id === id);
+            if (!currentDetailSong) return;
+            document.getElementById('detailTitle').textContent = currentDetailSong.title || 'Без названия';
+            document.getElementById('detailArtist').textContent = currentDetailSong.artist || '';
+            document.getElementById('btnDetailFav').textContent = favoriteIds.has(id) ? '❤️ В избранном' : '🤍 В избранное';
+            document.getElementById('detailLyrics').innerHTML = (currentDetailSong.lyrics || 'Текст не добавлен').replace(/\[([^\]]+)\]/g, '<span class="highlight-chords">[$1]</span>');
+            document.getElementById('detailOverlay').classList.add('active');
+        }
+
+        function closeDetail() { document.getElementById('detailOverlay').classList.remove('active'); }
+
+        function editSong(id) {
+            const s = allSongs.find(s => s.id === id);
+            if (!s) return;
+            editingId = id;
+            document.getElementById('modalTitle').textContent = '✏️ Редактировать';
+            document.getElementById('songTitle').value = s.title || '';
+            document.getElementById('songArtist').value = s.artist || '';
+            document.getElementById('songLyrics').value = s.lyrics || '';
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('modalTitle').textContent = '➕ Новая песня';
+            document.getElementById('songTitle').value = '';
+            document.getElementById('songArtist').value = '';
+            document.getElementById('songLyrics').value = '';
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal() { document.getElementById('modalOverlay').classList.remove('active'); }
+
+        function saveSong() {
+            const data = {
+                title: document.getElementById('songTitle').value.trim() || 'Без названия',
+                artist: document.getElementById('songArtist').value.trim() || 'Неизвестный исполнитель',
+                lyrics: document.getElementById('songLyrics').value.trim(),
+                dateAdded: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if (editingId) {
+                db.collection('songs').doc(editingId).update(data).then(() => showToast('✅ Обновлено'));
+            } else {
+                db.collection('songs').add(data).then(() => showToast('✅ Добавлено'));
+            }
+            closeModal();
+        }
+
+        function deleteSong(id) {
+            if (confirm('Удалить песню?')) db.collection('songs').doc(id).delete().then(() => showToast('🗑️ Удалено'));
+        }
+
+        function copyLyrics() {
+            if (currentDetailSong) {
+                navigator.clipboard.writeText(currentDetailSong.lyrics || '').then(() => showToast('📋 Скопировано!'));
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        document.getElementById('btnAdd').addEventListener('click', openAddModal);
+        document.getElementById('searchInput').addEventListener('input', renderCurrentTab);
+        document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+        document.getElementById('detailOverlay').addEventListener('click', function(e) { if (e.target === this) closeDetail(); });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeModal(); closeDetail(); } });
+    </script>
+</body>
+</html>
